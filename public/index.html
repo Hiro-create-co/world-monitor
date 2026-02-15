@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>世界監視局 — WORLD MONITOR</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -314,8 +315,11 @@
   }
 
   #map {
-    flex: 1;
-    min-height: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1;
   }
 
@@ -858,6 +862,7 @@ function switchTab(tab) {
 
 // ─── INIT ───
 initMap();
+setTimeout(() => map.invalidateSize(), 100);
 fetchEarthquakes();
 setInterval(fetchEarthquakes, 120000);
 renderNews(WORLD_NEWS);
