@@ -643,10 +643,11 @@
     <!-- RIGHT: News -->
     <div class="panel">
       <div class="tabs">
-        <button class="tab active" id="tabWorld" onclick="switchTab('world')">🌍 世界ニュース</button>
-        <button class="tab" id="tabTech" onclick="switchTab('tech')">🤖 AI・テック</button>
+        <button class="tab active" id="tabJapan" onclick="switchTab('japan')">🇯🇵 日本</button>
+        <button class="tab" id="tabWorld" onclick="switchTab('world')">🌍 世界</button>
+        <button class="tab" id="tabTech" onclick="switchTab('tech')">🤖 テック</button>
       </div>
-      <div class="section-label" id="newsSubLabel">地政学・経済・紛争 — <span id="newsCount">--</span> 件</div>
+      <div class="section-label" id="newsSubLabel">日本の主要ニュース — <span id="newsCount">--</span> 件</div>
       <div class="panel-body" id="newsBody"></div>
       <div class="tag-bar" id="tagBar"></div>
     </div>
@@ -667,6 +668,7 @@
 
 <script>
 // ─── DATA ───
+let JAPAN_NEWS = [];
 let WORLD_NEWS = [];
 let TECH_NEWS = [];
 
@@ -707,62 +709,63 @@ function deriveLevel(title) {
   return 'MED';
 }
 
-// News domain lists
-// Keep domain lists short to avoid GDELT "query too long" error (max ~7 domains)
-const WORLD_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:nikkei.com OR domain:sankei.com OR domain:afpbb.com OR domain:kyodo.co.jp';
+// News domain lists (max ~7 domains to avoid GDELT "query too long" error)
+const JAPAN_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:nikkei.com OR domain:sankei.com OR domain:mainichi.jp';
+const WORLD_DOMAINS = 'domain:reuters.com OR domain:bbc.com OR domain:aljazeera.com OR domain:apnews.com OR domain:france24.com';
 const TECH_DOMAINS = 'domain:itmedia.co.jp OR domain:gigazine.net OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp';
 
-// Fetch world news from GDELT (filtered by major news media domains)
-async function fetchWorldNews() {
+// Generic GDELT fetch helper with retry
+async function fetchGdeltNews(query, timespan) {
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=${timespan}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data.articles || !data.articles.length) return [];
+  return data.articles
+    .filter(a => a.title && a.title.length > 10)
+    .map(a => ({
+      title: a.title,
+      source: a.domain.replace('www.', ''),
+      url: a.url,
+      age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
+      level: deriveLevel(a.title),
+      cat: deriveCategory(a.title, a.domain),
+    }));
+}
+
+// Fetch Japan news
+async function fetchJapanNews() {
   try {
-    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=sourcelang:japanese (${WORLD_DOMAINS})&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=24h`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.articles || !data.articles.length) return;
-    WORLD_NEWS = data.articles
-      .filter(a => a.title && a.title.length > 10)
-      .map(a => ({
-        title: a.title,
-        source: a.domain.replace('www.', ''),
-        url: a.url,
-        age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
-        level: deriveLevel(a.title),
-        cat: deriveCategory(a.title, a.domain),
-      }));
-    if (currentTab === 'world') renderNews(WORLD_NEWS);
+    JAPAN_NEWS = await fetchGdeltNews(`sourcelang:japanese (${JAPAN_DOMAINS})`, '24h');
+    if (currentTab === 'japan') renderNews(JAPAN_NEWS);
     document.getElementById('newsFeedStatus').textContent = 'LIVE';
     document.getElementById('newsFeedStatus').className = 'status-online';
   } catch(e) {
-    console.error('World news fetch error:', e);
-    document.getElementById('newsFeedStatus').textContent = 'ERROR';
-    document.getElementById('newsFeedStatus').className = 'status-error';
+    console.error('Japan news fetch error:', e);
+    if (!JAPAN_NEWS.length) {
+      document.getElementById('newsFeedStatus').textContent = 'ERROR';
+      document.getElementById('newsFeedStatus').className = 'status-error';
+    }
   }
 }
 
-// Fetch tech news from GDELT (filtered by tech media domains)
+// Fetch world news (English international media)
+async function fetchWorldNews() {
+  try {
+    WORLD_NEWS = await fetchGdeltNews(`sourcelang:english (${WORLD_DOMAINS})`, '24h');
+    if (currentTab === 'world') renderNews(WORLD_NEWS);
+  } catch(e) { console.error('World news fetch error:', e); }
+}
+
+// Fetch tech news (Japanese tech media)
 async function fetchTechNews() {
   try {
-    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=sourcelang:japanese (${TECH_DOMAINS})&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=48h`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.articles || !data.articles.length) return;
-    TECH_NEWS = data.articles
-      .filter(a => a.title && a.title.length > 10)
-      .map(a => ({
-        title: a.title,
-        source: a.domain.replace('www.', ''),
-        url: a.url,
-        age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
-        level: deriveLevel(a.title),
-        cat: deriveCategory(a.title, a.domain),
-      }));
+    TECH_NEWS = await fetchGdeltNews(`sourcelang:japanese (${TECH_DOMAINS})`, '48h');
     if (currentTab === 'tech') renderNews(TECH_NEWS);
-  } catch(e) {
-    console.error('Tech news fetch error:', e);
-  }
+  } catch(e) { console.error('Tech news fetch error:', e); }
 }
 
-let currentTab = 'world';
+let currentTab = 'japan';
 let map, eqLayer;
 let earthquakeData = [];
 const layers = {
@@ -1032,16 +1035,17 @@ function renderNews(items) {
 
   // Count
   document.getElementById('newsCount').textContent = items.length;
+  const labels = { japan: '日本の主要ニュース', world: '国際ニュース (EN)', tech: 'AI・半導体・宇宙' };
   document.getElementById('newsSubLabel').innerHTML =
-    currentTab === 'world' ? `地政学・経済・紛争 — <span id="newsCount">${items.length}</span> 件` :
-    `AI・半導体・宇宙 — <span id="newsCount">${items.length}</span> 件`;
+    `${labels[currentTab] || ''} — <span id="newsCount">${items.length}</span> 件`;
 }
 
 function switchTab(tab) {
   currentTab = tab;
+  document.getElementById('tabJapan').className = 'tab' + (tab === 'japan' ? ' active' : '');
   document.getElementById('tabWorld').className = 'tab' + (tab === 'world' ? ' active' : '');
   document.getElementById('tabTech').className = 'tab' + (tab === 'tech' ? ' active' : '');
-  const items = tab === 'world' ? WORLD_NEWS : TECH_NEWS;
+  const items = tab === 'japan' ? JAPAN_NEWS : tab === 'world' ? WORLD_NEWS : TECH_NEWS;
   renderNews(items);
 }
 
@@ -1225,12 +1229,14 @@ setInterval(fetchWildfires, 1800000);     // 30 min
 setInterval(fetchConflicts, 3600000);     // 60 min
 setInterval(fetchStorms, 1800000);        // 30 min
 
-// News fetch (staggered to avoid GDELT rate limits)
-renderNews(WORLD_NEWS); // show loading state
-fetchWorldNews();
-setTimeout(fetchTechNews, 5000);         // stagger 5s
-setInterval(fetchWorldNews, 300000);     // 5 min
-setInterval(fetchTechNews, 300000);      // 5 min
+// News fetch (staggered by 15s each to avoid GDELT rate limits)
+renderNews(JAPAN_NEWS); // show loading state
+fetchJapanNews();
+setTimeout(fetchWorldNews, 15000);       // +15s
+setTimeout(fetchTechNews, 30000);        // +30s
+setInterval(fetchJapanNews, 300000);     // 5 min
+setInterval(() => setTimeout(fetchWorldNews, 15000), 300000);
+setInterval(() => setTimeout(fetchTechNews, 30000), 300000);
 </script>
 </body>
 </html>
