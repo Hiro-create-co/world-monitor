@@ -708,8 +708,9 @@ function deriveLevel(title) {
 }
 
 // News domain lists
-const WORLD_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:asahi.com OR domain:mainichi.jp OR domain:sankei.com OR domain:kyodo.co.jp OR domain:nikkei.com OR domain:jp.reuters.com OR domain:afpbb.com OR domain:newsweekjapan.jp OR domain:tokyo-np.co.jp OR domain:cnn.co.jp OR domain:bbc.com';
-const TECH_DOMAINS = 'domain:itmedia.co.jp OR domain:gigazine.net OR domain:japan.zdnet.com OR domain:pc.watch.impress.co.jp OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp OR domain:cloud.watch.impress.co.jp OR domain:ledge.ai OR domain:robotstart.info';
+// Keep domain lists short to avoid GDELT "query too long" error (max ~7 domains)
+const WORLD_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:nikkei.com OR domain:sankei.com OR domain:afpbb.com OR domain:kyodo.co.jp';
+const TECH_DOMAINS = 'domain:itmedia.co.jp OR domain:gigazine.net OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp';
 
 // Fetch world news from GDELT (filtered by major news media domains)
 async function fetchWorldNews() {
