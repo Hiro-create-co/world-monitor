@@ -635,7 +635,7 @@
         <div class="summary">
           <div class="summary-title">📊 状況サマリー</div>
           <div class="summary-text" id="summaryText">データを取得中...</div>
-          <div class="summary-source">データソース: USGS Earthquake Hazards Program (リアルタイム)</div>
+          <div class="summary-source">データソース: USGS・NASA EONET・GDELT (リアルタイム総合分析)</div>
         </div>
       </div>
     </div>
@@ -770,12 +770,12 @@ let currentTab = 'japan';
 let map, eqLayer;
 let earthquakeData = [];
 const layers = {
-  earthquakes: { group: null, visible: true },
-  volcanoes:   { group: null, visible: true },
-  wildfires:   { group: null, visible: false },
-  conflicts:   { group: null, visible: true },
-  nuclear:     { group: null, visible: false },
-  storms:      { group: null, visible: false },
+  earthquakes: { group: null, visible: true, count: 0 },
+  volcanoes:   { group: null, visible: true, count: 0 },
+  wildfires:   { group: null, visible: false, count: 0 },
+  conflicts:   { group: null, visible: true, count: 0 },
+  nuclear:     { group: null, visible: false, count: 0 },
+  storms:      { group: null, visible: false, count: 0 },
 };
 
 // ─── UTILITIES ───
@@ -942,36 +942,24 @@ function updateEarthquakeList(features) {
   // All quakes
   document.getElementById('allQuakes').innerHTML = features.slice(0, 40).map((f, i) => renderEqItem(f, i)).join('');
 
-  // Threat level
-  const hasHigh = maxMag >= 5;
-  const elevated = hasHigh || japanCount > 3;
-  const badge = document.getElementById('threatBadge');
-  const dot = document.getElementById('threatDot');
-  const text = document.getElementById('threatText');
-  badge.className = 'threat-badge ' + (elevated ? 'elevated' : 'normal');
-  dot.style.background = elevated ? 'var(--orange)' : 'var(--green)';
-  text.textContent = elevated ? '警戒レベル: 高' : '警戒レベル: 通常';
+  // Update global risk (earthquake data feeds into it)
+  updateGlobalRisk();
 
-  // Gauge
-  const level = maxMag >= 6 ? 85 : maxMag >= 5 ? 65 : maxMag >= 4 ? 45 : maxMag >= 3 ? 30 : 15;
-  const levelText = level >= 70 ? '危険' : level >= 50 ? '警戒' : level >= 30 ? '注意' : '安定';
-  const gaugeColor = level >= 70 ? 'var(--red)' : level >= 50 ? 'var(--orange)' : level >= 30 ? 'var(--yellow)' : 'var(--green)';
-  document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${level * 1.42} 142`);
-  document.getElementById('gaugeValue').textContent = level;
-  document.getElementById('gaugeValue').setAttribute('fill', gaugeColor);
-  document.getElementById('gaugeLabel').textContent = levelText;
-  document.getElementById('gaugeLabel').setAttribute('fill', gaugeColor);
-
-  // Summary
+  // Summary (multi-factor)
   let summary = `過去24時間でM2.5以上の地震が<span class="summary-hl" style="color:var(--cyan)">${total}件</span>観測。`;
   if (japanCount > 0) {
     summary += `日本周辺では<span class="summary-hl" style="color:var(--orange)">${japanCount}件</span>を確認。`;
   } else {
     summary += `日本周辺での有感地震は<span style="color:var(--green)">なし</span>。`;
   }
-  if (hasHigh) {
+  if (maxMag >= 5) {
     summary += `<span style="color:var(--orange)"> M5.0以上の地震が発生しており、警戒レベルを引き上げ中。</span>`;
   }
+  // Append other factor summaries
+  const vc = layers.volcanoes.count, sc = layers.storms.count, fc = layers.wildfires.count;
+  if (vc > 0) summary += ` 活火山<span style="color:#ff6600">${vc}</span>件活動中。`;
+  if (sc > 0) summary += ` 暴風<span style="color:#40c4ff">${sc}</span>件発生中。`;
+  if (fc > 20) summary += ` 火災<span style="color:#ff6600">${fc}</span>件検出。`;
   document.getElementById('summaryText').innerHTML = summary;
   document.getElementById('lastUpdate').textContent = '更新: ' + new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
@@ -1068,8 +1056,69 @@ function toggleLayerPanel() {
 }
 
 function updateLayerCount(name, count) {
+  if (layers[name]) layers[name].count = count;
   const el = document.getElementById('layerCount-' + name);
   if (el) el.textContent = count;
+  updateGlobalRisk();
+}
+
+// ─── GLOBAL RISK INDEX (multi-factor) ───
+function updateGlobalRisk() {
+  let score = 0;
+
+  // ── 1. Earthquake factor (0-35 pts) ──
+  const eqCount = earthquakeData.length;
+  const maxMag = eqCount > 0 ? Math.max(...earthquakeData.map(f => f.properties.mag)) : 0;
+  const japanEq = earthquakeData.filter(f => isJapan(f.properties.place)).length;
+  // Max magnitude contribution (0-20)
+  if (maxMag >= 7) score += 20;
+  else if (maxMag >= 6) score += 16;
+  else if (maxMag >= 5) score += 12;
+  else if (maxMag >= 4) score += 6;
+  else if (maxMag >= 3) score += 3;
+  // Earthquake frequency (0-10): >50=10, >30=7, >20=5, >10=3
+  score += eqCount > 50 ? 10 : eqCount > 30 ? 7 : eqCount > 20 ? 5 : eqCount > 10 ? 3 : 1;
+  // Japan proximity bonus (0-5)
+  score += japanEq >= 5 ? 5 : japanEq >= 3 ? 4 : japanEq >= 1 ? 2 : 0;
+
+  // ── 2. Volcano factor (0-15 pts) ──
+  const volcCount = layers.volcanoes.count;
+  score += volcCount >= 30 ? 15 : volcCount >= 20 ? 10 : volcCount >= 10 ? 6 : volcCount >= 1 ? 3 : 0;
+
+  // ── 3. Storm factor (0-15 pts) ──
+  const stormCount = layers.storms.count;
+  score += stormCount >= 10 ? 15 : stormCount >= 5 ? 10 : stormCount >= 3 ? 7 : stormCount >= 1 ? 4 : 0;
+
+  // ── 4. Conflict factor (0-20 pts) ──
+  const conflictCount = layers.conflicts.count;
+  score += conflictCount >= 500 ? 20 : conflictCount >= 200 ? 15 : conflictCount >= 100 ? 10 : conflictCount >= 50 ? 6 : conflictCount >= 1 ? 3 : 0;
+
+  // ── 5. Wildfire factor (0-15 pts) ──
+  const fireCount = layers.wildfires.count;
+  score += fireCount >= 80 ? 15 : fireCount >= 50 ? 10 : fireCount >= 20 ? 6 : fireCount >= 1 ? 3 : 0;
+
+  // Clamp to 0-100
+  const level = Math.min(100, Math.max(0, score));
+  const levelText = level >= 75 ? '危険' : level >= 50 ? '警戒' : level >= 25 ? '注意' : '安定';
+  const gaugeColor = level >= 75 ? 'var(--red)' : level >= 50 ? 'var(--orange)' : level >= 25 ? 'var(--yellow)' : 'var(--green)';
+
+  // Update gauge UI
+  document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${level * 1.42} 142`);
+  document.getElementById('gaugeValue').textContent = level;
+  document.getElementById('gaugeValue').setAttribute('fill', gaugeColor);
+  document.getElementById('gaugeLabel').textContent = levelText;
+  document.getElementById('gaugeLabel').setAttribute('fill', gaugeColor);
+
+  // Update header threat badge
+  const elevated = level >= 50;
+  const badge = document.getElementById('threatBadge');
+  const dot = document.getElementById('threatDot');
+  const text = document.getElementById('threatText');
+  if (badge && dot && text) {
+    badge.className = 'threat-badge ' + (level >= 75 ? 'elevated' : elevated ? 'elevated' : 'normal');
+    dot.style.background = level >= 75 ? 'var(--red)' : elevated ? 'var(--orange)' : 'var(--green)';
+    text.textContent = level >= 75 ? '警戒レベル: 危険' : elevated ? '警戒レベル: 高' : '警戒レベル: 通常';
+  }
 }
 
 // ─── FETCH: VOLCANOES (NASA EONET) ───
