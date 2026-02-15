@@ -1,0 +1,6 @@
+{
+  "name": "world-monitor",
+  "version": "2.0.0",
+  "description": "世界監視局 — リアルタイム地震・ニュース監視ダッシュボード",
+  "private": true
+}
