@@ -378,6 +378,43 @@
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
   .legend-label { font-family: var(--mono); font-size: 9px; color: #6a8a9a; }
 
+  /* Layer control panel */
+  .layer-toggle-btn {
+    position: absolute; top: 80px; left: 10px; z-index: 1001;
+    width: 30px; height: 30px; background: var(--bg-panel);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--cyan); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .layer-toggle-btn:hover { background: #0d1f30; }
+  .layer-panel {
+    position: absolute; top: 80px; left: 10px; z-index: 1001;
+    background: rgba(10, 22, 40, 0.95); border: 1px solid var(--border);
+    border-radius: 4px; min-width: 230px;
+    font-family: var(--mono); backdrop-filter: blur(8px);
+  }
+  .layer-panel.hidden { display: none; }
+  .layer-panel-header {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--cyan); letter-spacing: 2px;
+  }
+  .layer-row {
+    padding: 6px 12px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border-dim); cursor: pointer;
+    transition: background 0.2s; margin: 0;
+  }
+  .layer-row:last-child { border-bottom: none; }
+  .layer-row:hover { background: rgba(0,255,255,0.04); }
+  .layer-row input[type="checkbox"] { accent-color: var(--cyan); cursor: pointer; }
+  .layer-icon { font-size: 14px; width: 20px; text-align: center; }
+  .layer-name { font-size: 10px; color: var(--text); flex: 1; }
+  .layer-count {
+    font-size: 9px; color: var(--text-dim);
+    padding: 1px 6px; background: rgba(0,255,255,0.06);
+    border-radius: 8px; min-width: 20px; text-align: center;
+  }
+
   /* Footer */
   .footer {
     display: flex; align-items: center; justify-content: space-between;
@@ -516,12 +553,59 @@
       </div>
       <div style="flex:1;position:relative;min-height:0">
         <div id="map"></div>
+        <!-- Layer control panel -->
+        <div class="layer-panel" id="layerPanel">
+          <div class="layer-panel-header">
+            <span>LAYERS</span>
+            <span style="cursor:pointer;font-size:14px" onclick="toggleLayerPanel()">×</span>
+          </div>
+          <label class="layer-row">
+            <input type="checkbox" checked onchange="toggleLayer('earthquakes', this.checked)">
+            <span class="layer-icon">🔴</span>
+            <span class="layer-name">地震 SEISMIC</span>
+            <span class="layer-count" id="layerCount-earthquakes">--</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" checked onchange="toggleLayer('volcanoes', this.checked)">
+            <span class="layer-icon">🌋</span>
+            <span class="layer-name">火山 VOLCANOES</span>
+            <span class="layer-count" id="layerCount-volcanoes">--</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" onchange="toggleLayer('wildfires', this.checked)">
+            <span class="layer-icon">🔥</span>
+            <span class="layer-name">火災 WILDFIRES</span>
+            <span class="layer-count" id="layerCount-wildfires">--</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" checked onchange="toggleLayer('conflicts', this.checked)">
+            <span class="layer-icon">⚡</span>
+            <span class="layer-name">紛争 CONFLICTS</span>
+            <span class="layer-count" id="layerCount-conflicts">--</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" onchange="toggleLayer('nuclear', this.checked)">
+            <span class="layer-icon">☢</span>
+            <span class="layer-name">原発 NUCLEAR</span>
+            <span class="layer-count" id="layerCount-nuclear">--</span>
+          </label>
+          <label class="layer-row">
+            <input type="checkbox" onchange="toggleLayer('storms', this.checked)">
+            <span class="layer-icon">🌀</span>
+            <span class="layer-name">暴風 STORMS</span>
+            <span class="layer-count" id="layerCount-storms">--</span>
+          </label>
+        </div>
+        <button class="layer-toggle-btn hidden" id="layerToggleBtn" onclick="toggleLayerPanel()" title="レイヤー表示">☰</button>
         <div class="map-legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div><span class="legend-label">M7+</span></div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div><span class="legend-label">M5+</span></div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div><span class="legend-label">M4+</span></div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div><span class="legend-label">M3+</span></div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div><span class="legend-label">M2.5+</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div><span class="legend-label">M3+</span></div>
+          <div class="legend-item"><span class="legend-label" style="font-size:12px">🌋</span><span class="legend-label">火山</span></div>
+          <div class="legend-item"><span class="legend-label" style="font-size:12px">🔥</span><span class="legend-label">火災</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff1744"></div><span class="legend-label">紛争</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ffea00"></div><span class="legend-label">原発</span></div>
+          <div class="legend-item"><span class="legend-label" style="font-size:12px">🌀</span><span class="legend-label">暴風</span></div>
         </div>
         <div style="position:absolute;top:10px;right:10px;z-index:1000;font-family:var(--mono);font-size:9px;color:var(--text-dimmer);background:rgba(6,14,24,0.9);padding:6px 10px;border-radius:3px;border:1px solid var(--border)">
           <span id="lastUpdate">更新: ---</span><br>次回更新: 2分毎
@@ -570,12 +654,13 @@
   <!-- FOOTER -->
   <footer class="footer">
     <div class="footer-left">
-      <span>USGS API: <span class="status-online" id="apiStatus">ONLINE</span></span>
+      <span>USGS: <span class="status-online" id="apiStatus">ONLINE</span></span>
+      <span>NASA EONET: <span class="status-online">ONLINE</span></span>
+      <span>GDELT: <span class="status-online">ONLINE</span></span>
       <span>YouTube: <span class="status-online">LIVE</span></span>
       <span>ニュースフィード: <span class="status-demo">DEMO</span></span>
-      <span>更新間隔: 120s</span>
     </div>
-    <div>世界監視局 — Powered by USGS & YouTube Live</div>
+    <div>世界監視局 — Powered by USGS & NASA EONET & GDELT & YouTube Live</div>
   </footer>
 </div>
 
@@ -614,6 +699,14 @@ const TECH_NEWS = [
 let currentTab = 'world';
 let map, eqLayer;
 let earthquakeData = [];
+const layers = {
+  earthquakes: { group: null, visible: true },
+  volcanoes:   { group: null, visible: true },
+  wildfires:   { group: null, visible: false },
+  conflicts:   { group: null, visible: true },
+  nuclear:     { group: null, visible: false },
+  storms:      { group: null, visible: false },
+};
 
 // ─── UTILITIES ───
 function timeAgo(ts) {
@@ -661,8 +754,8 @@ updateClock();
 // ─── MAP INIT ───
 function initMap() {
   map = L.map('map', {
-    center: [20, 0],
-    zoom: 2,
+    center: [35, 136],
+    zoom: 3,
     minZoom: 2,
     maxZoom: 10,
     zoomControl: true,
@@ -678,7 +771,13 @@ function initMap() {
     maxZoom: 19,
   }).addTo(map);
 
-  eqLayer = L.layerGroup().addTo(map);
+  layers.earthquakes.group = L.layerGroup().addTo(map);
+  layers.volcanoes.group = L.layerGroup().addTo(map);
+  layers.wildfires.group = L.layerGroup();
+  layers.conflicts.group = L.layerGroup().addTo(map);
+  layers.nuclear.group = L.layerGroup();
+  layers.storms.group = L.layerGroup();
+  eqLayer = layers.earthquakes.group;
 }
 
 function updateMapMarkers(features) {
@@ -816,6 +915,7 @@ async function fetchEarthquakes() {
     earthquakeData = data.features || [];
     updateEarthquakeList(earthquakeData);
     updateMapMarkers(earthquakeData);
+    updateLayerCount('earthquakes', earthquakeData.length);
     document.getElementById('apiStatus').textContent = 'ONLINE';
     document.getElementById('apiStatus').className = 'status-online';
   } catch (e) {
@@ -864,12 +964,186 @@ function switchTab(tab) {
   renderNews(tab === 'world' ? WORLD_NEWS : TECH_NEWS);
 }
 
+// ─── LAYER CONTROLS ───
+function toggleLayer(name, visible) {
+  layers[name].visible = visible;
+  if (visible) {
+    map.addLayer(layers[name].group);
+  } else {
+    map.removeLayer(layers[name].group);
+  }
+}
+
+function toggleLayerPanel() {
+  const panel = document.getElementById('layerPanel');
+  const btn = document.getElementById('layerToggleBtn');
+  panel.classList.toggle('hidden');
+  btn.classList.toggle('hidden');
+}
+
+function updateLayerCount(name, count) {
+  const el = document.getElementById('layerCount-' + name);
+  if (el) el.textContent = count;
+}
+
+// ─── FETCH: VOLCANOES (NASA EONET) ───
+async function fetchVolcanoes() {
+  try {
+    const res = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&category=volcanoes');
+    const data = await res.json();
+    const features = data.features || [];
+    layers.volcanoes.group.clearLayers();
+    features.forEach(f => {
+      const coords = f.geometry.coordinates;
+      const [lon, lat] = Array.isArray(coords[0]) ? coords[coords.length - 1] : coords;
+      L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<span style="font-size:16px;filter:drop-shadow(0 0 4px #ff6600)">🌋</span>',
+          iconSize: [20, 20], iconAnchor: [10, 10]
+        })
+      }).addTo(layers.volcanoes.group)
+        .bindPopup(`<div style="min-width:140px">
+          <div style="color:#ff6600;font-weight:700;font-family:var(--mono)">🌋 VOLCANO</div>
+          <div style="margin-top:4px">${f.properties.title || '不明'}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.properties.date ? new Date(f.properties.date).toLocaleDateString('ja-JP') : '---'}</div>
+        </div>`);
+    });
+    updateLayerCount('volcanoes', features.length);
+  } catch(e) { console.error('Volcano fetch error:', e); }
+}
+
+// ─── FETCH: WILDFIRES (NASA EONET) ───
+async function fetchWildfires() {
+  try {
+    const res = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&category=wildfires&limit=100');
+    const data = await res.json();
+    const features = data.features || [];
+    layers.wildfires.group.clearLayers();
+    features.forEach(f => {
+      const coords = f.geometry.coordinates;
+      const [lon, lat] = Array.isArray(coords[0]) ? coords[coords.length - 1] : coords;
+      L.circleMarker([lat, lon], {
+        radius: 5,
+        color: '#ff6600',
+        fillColor: '#ff6600',
+        fillOpacity: 0.4,
+        weight: 1,
+      }).addTo(layers.wildfires.group)
+        .bindPopup(`<div style="min-width:140px">
+          <div style="color:#ff6600;font-weight:700;font-family:var(--mono)">🔥 WILDFIRE</div>
+          <div style="margin-top:4px">${f.properties.title || '不明'}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.properties.date ? new Date(f.properties.date).toLocaleDateString('ja-JP') : '---'}</div>
+        </div>`);
+    });
+    updateLayerCount('wildfires', features.length);
+  } catch(e) { console.error('Wildfire fetch error:', e); }
+}
+
+// ─── FETCH: CONFLICTS (GDELT GEO 2.0) ───
+async function fetchConflicts() {
+  try {
+    const url = 'https://api.gdeltproject.org/api/v2/geo/geo?query=(conflict OR protest OR military OR attack)&mode=PointData&format=GeoJSON&timespan=1440';
+    const res = await fetch(url);
+    const data = await res.json();
+    const features = (data.features || []).filter(f =>
+      f.geometry && f.geometry.coordinates &&
+      f.geometry.coordinates[0] !== 0 && f.geometry.coordinates[1] !== 0
+    );
+    layers.conflicts.group.clearLayers();
+    features.forEach(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      const count = (f.properties && f.properties.count) || 1;
+      const r = Math.min(15, Math.max(3, Math.log10(count + 1) * 5));
+      L.circleMarker([lat, lon], {
+        radius: r,
+        color: '#ff1744',
+        fillColor: '#ff4444',
+        fillOpacity: 0.25,
+        weight: 1,
+      }).addTo(layers.conflicts.group)
+        .bindPopup(`<div style="min-width:140px">
+          <div style="color:#ff1744;font-weight:700;font-family:var(--mono)">⚡ CONFLICT INTEL</div>
+          <div style="margin-top:4px">${(f.properties && f.properties.name) || '不明'}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px">報道件数: ${count.toLocaleString()}</div>
+        </div>`);
+    });
+    updateLayerCount('conflicts', features.length);
+  } catch(e) { console.error('Conflict fetch error:', e); }
+}
+
+// ─── FETCH: NUCLEAR PLANTS (GeoNuclearData) ───
+async function fetchNuclearPlants() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/cristianst85/GeoNuclearData/master/data/json/denormalized/nuclear_power_plants.json');
+    const data = await res.json();
+    const operational = data.filter(p => p.Status === 'Operational' && p.Latitude && p.Longitude);
+    layers.nuclear.group.clearLayers();
+    operational.forEach(p => {
+      L.circleMarker([p.Latitude, p.Longitude], {
+        radius: 5,
+        color: '#ffea00',
+        fillColor: '#ffea00',
+        fillOpacity: 0.5,
+        weight: 1,
+      }).addTo(layers.nuclear.group)
+        .bindPopup(`<div style="min-width:140px">
+          <div style="color:#ffea00;font-weight:700;font-family:var(--mono)">☢ NUCLEAR</div>
+          <div style="margin-top:4px">${p.Name}</div>
+          <div style="font-size:10px;color:var(--text-dim)">${p.Country} | ${p.ReactorType || '---'} | ${p.Capacity ? p.Capacity + ' MWe' : '---'}</div>
+        </div>`);
+    });
+    updateLayerCount('nuclear', operational.length);
+  } catch(e) { console.error('Nuclear fetch error:', e); }
+}
+
+// ─── FETCH: SEVERE STORMS (NASA EONET) ───
+async function fetchStorms() {
+  try {
+    const res = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&category=severeStorms');
+    const data = await res.json();
+    const features = data.features || [];
+    layers.storms.group.clearLayers();
+    features.forEach(f => {
+      const coords = f.geometry.coordinates;
+      const [lon, lat] = Array.isArray(coords[0]) ? coords[coords.length - 1] : coords;
+      L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<span style="font-size:18px;filter:drop-shadow(0 0 6px #40c4ff)">🌀</span>',
+          iconSize: [22, 22], iconAnchor: [11, 11]
+        })
+      }).addTo(layers.storms.group)
+        .bindPopup(`<div style="min-width:140px">
+          <div style="color:#40c4ff;font-weight:700;font-family:var(--mono)">🌀 STORM</div>
+          <div style="margin-top:4px">${f.properties.title || '不明'}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.properties.date ? new Date(f.properties.date).toLocaleDateString('ja-JP') : '---'}</div>
+        </div>`);
+    });
+    updateLayerCount('storms', features.length);
+  } catch(e) { console.error('Storm fetch error:', e); }
+}
+
 // ─── INIT ───
 initMap();
-setTimeout(() => { map.invalidateSize(); map.setView([20, 0], 2); }, 200);
+setTimeout(() => { map.invalidateSize(); map.setView([35, 136], 3); }, 200);
 window.addEventListener('resize', () => map.invalidateSize());
+
+// Fetch all layers
 fetchEarthquakes();
-setInterval(fetchEarthquakes, 120000);
+fetchVolcanoes();
+fetchWildfires();
+fetchConflicts();
+fetchNuclearPlants();
+fetchStorms();
+
+// Refresh intervals
+setInterval(fetchEarthquakes, 120000);    // 2 min
+setInterval(fetchVolcanoes, 1800000);     // 30 min
+setInterval(fetchWildfires, 1800000);     // 30 min
+setInterval(fetchConflicts, 3600000);     // 60 min
+setInterval(fetchStorms, 1800000);        // 30 min
+
 renderNews(WORLD_NEWS);
 </script>
 </body>
