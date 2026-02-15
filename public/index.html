@@ -710,18 +710,21 @@ function deriveLevel(title) {
 // Fetch world news from GDELT
 async function fetchWorldNews() {
   try {
-    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(geopolitics OR conflict OR economy OR military OR diplomacy OR sanctions OR war OR trade) sourcelang:japanese&mode=ArtList&maxrecords=25&format=json&sort=DateDesc&timespan=24h';
+    // Japanese keywords for world news: politics, economy, military, diplomacy, conflict
+    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(政治 OR 経済 OR 軍事 OR 外交 OR 紛争 OR 戦争 OR 制裁 OR 安全保障 OR 地政学 OR 選挙 OR 首脳) sourcelang:japanese&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=24h';
     const res = await fetch(url);
     const data = await res.json();
     if (!data.articles || !data.articles.length) return;
-    WORLD_NEWS = data.articles.map(a => ({
-      title: a.title,
-      source: a.domain.replace('www.', ''),
-      url: a.url,
-      age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
-      level: deriveLevel(a.title),
-      cat: deriveCategory(a.title, a.domain),
-    }));
+    WORLD_NEWS = data.articles
+      .filter(a => a.title && a.title.length > 10)
+      .map(a => ({
+        title: a.title,
+        source: a.domain.replace('www.', ''),
+        url: a.url,
+        age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
+        level: deriveLevel(a.title),
+        cat: deriveCategory(a.title, a.domain),
+      }));
     if (currentTab === 'world') renderNews(WORLD_NEWS);
     document.getElementById('newsFeedStatus').textContent = 'LIVE';
     document.getElementById('newsFeedStatus').className = 'status-online';
@@ -735,18 +738,21 @@ async function fetchWorldNews() {
 // Fetch tech news from GDELT
 async function fetchTechNews() {
   try {
-    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(AI OR "artificial intelligence" OR semiconductor OR quantum OR space OR robot) sourcelang:japanese&mode=ArtList&maxrecords=25&format=json&sort=DateDesc&timespan=48h';
+    // Japanese keywords for tech news: AI, semiconductor, space, quantum, robot
+    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(人工知能 OR 半導体 OR 宇宙 OR 量子 OR ロボット OR 生成AI OR チャットボット OR GPU OR スパコン) sourcelang:japanese&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=48h';
     const res = await fetch(url);
     const data = await res.json();
     if (!data.articles || !data.articles.length) return;
-    TECH_NEWS = data.articles.map(a => ({
-      title: a.title,
-      source: a.domain.replace('www.', ''),
-      url: a.url,
-      age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
-      level: deriveLevel(a.title),
-      cat: deriveCategory(a.title, a.domain),
-    }));
+    TECH_NEWS = data.articles
+      .filter(a => a.title && a.title.length > 10)
+      .map(a => ({
+        title: a.title,
+        source: a.domain.replace('www.', ''),
+        url: a.url,
+        age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
+        level: deriveLevel(a.title),
+        cat: deriveCategory(a.title, a.domain),
+      }));
     if (currentTab === 'tech') renderNews(TECH_NEWS);
   } catch(e) {
     console.error('Tech news fetch error:', e);
