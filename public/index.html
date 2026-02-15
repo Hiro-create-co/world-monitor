@@ -294,7 +294,8 @@
   .news-time {
     margin-left: auto; font-size: 10px; font-family: var(--mono); color: var(--text-dimmer);
   }
-  .news-title { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .news-title { font-size: 13px; color: var(--text); line-height: 1.5; display: block; }
+  a.news-title:hover { color: var(--cyan); }
   .news-source { font-size: 10px; color: var(--text-dimmer); font-family: var(--mono); margin-top: 3px; }
 
   /* Category tags */
@@ -658,7 +659,7 @@
       <span>NASA EONET: <span class="status-online">ONLINE</span></span>
       <span>GDELT: <span class="status-online">ONLINE</span></span>
       <span>YouTube: <span class="status-online">LIVE</span></span>
-      <span>ニュースフィード: <span class="status-demo">DEMO</span></span>
+      <span>ニュース: <span class="status-online" id="newsFeedStatus">LIVE</span></span>
     </div>
     <div>世界監視局 — Powered by USGS & NASA EONET & GDELT & YouTube Live</div>
   </footer>
@@ -666,35 +667,91 @@
 
 <script>
 // ─── DATA ───
-const WORLD_NEWS = [
-  { title: "米中関係：バイデン政権、対中半導体規制をさらに強化", source: "ロイター", age: 1, level: "HIGH", cat: "地政学" },
-  { title: "ウクライナ情勢：停戦交渉の新たな枠組みを模索", source: "AP通信", age: 2, level: "CRIT", cat: "紛争" },
-  { title: "EU、デジタルサービス法の施行を本格化", source: "BBC", age: 3, level: "MED", cat: "規制" },
-  { title: "中東：イエメン沖でタンカー攻撃、原油価格が急騰", source: "アルジャジーラ", age: 4, level: "HIGH", cat: "エネルギー" },
-  { title: "インド経済、GDP成長率7.2%を記録", source: "日経", age: 5, level: "MED", cat: "経済" },
-  { title: "北朝鮮、新型ICBM発射実験を実施 — 国連安保理が緊急会合", source: "NHK", age: 6, level: "CRIT", cat: "安全保障" },
-  { title: "アフリカ連合、サヘル地域の治安安定化に新部隊を派遣", source: "フランス24", age: 7, level: "MED", cat: "紛争" },
-  { title: "ブラジル、アマゾン森林破壊率が前年比30%減少", source: "ガーディアン", age: 8, level: "LOW", cat: "環境" },
-  { title: "NATO、北極圏での軍事演習を拡大 — ロシアへの牽制強化", source: "CNN", age: 9, level: "HIGH", cat: "安全保障" },
-  { title: "台湾海峡、中国軍機38機が防空識別圏に侵入", source: "共同通信", age: 10, level: "CRIT", cat: "安全保障" },
-  { title: "サウジアラビア、ネオム建設プロジェクトを大幅縮小", source: "FT", age: 11, level: "MED", cat: "経済" },
-  { title: "ミャンマー軍事政権、少数民族武装勢力との衝突激化", source: "AFP", age: 12, level: "HIGH", cat: "紛争" },
-];
+let WORLD_NEWS = [];
+let TECH_NEWS = [];
 
-const TECH_NEWS = [
-  { title: "Anthropic、Claude 4.5ファミリーを発表 — Opus 4.6が最上位モデルに", source: "TechCrunch", age: 0.5, level: "HIGH", cat: "AI" },
-  { title: "Google DeepMind、マルチモーダルAI「Gemini Ultra 2」を公開", source: "The Verge", age: 1.5, level: "HIGH", cat: "AI" },
-  { title: "OpenAI、GPT-5のエンタープライズ版を来月リリースへ", source: "Bloomberg", age: 2.5, level: "MED", cat: "AI" },
-  { title: "NVIDIA、次世代GPU「Blackwell Ultra」の量産を開始", source: "Wired", age: 3.5, level: "HIGH", cat: "半導体" },
-  { title: "Apple Intelligence、日本語対応が遂にスタート", source: "9to5Mac", age: 4.5, level: "MED", cat: "AI" },
-  { title: "EU AI法、本格施行開始 — 高リスクAIに厳格な規制", source: "Reuters", age: 5.5, level: "HIGH", cat: "規制" },
-  { title: "IBM、1000量子ビット超のプロセッサを発表", source: "MIT Tech Review", age: 6.5, level: "MED", cat: "量子" },
-  { title: "Waymo、東京でのテスト走行を2026年後半に開始", source: "日経", age: 7.5, level: "MED", cat: "自動運転" },
-  { title: "Stability AI、画像生成モデルSD4を発表", source: "Ars Technica", age: 8.5, level: "LOW", cat: "生成AI" },
-  { title: "SpaceX Starship、第6回試験飛行で軌道到達に成功", source: "Space.com", age: 9.5, level: "INFO", cat: "宇宙" },
-  { title: "Meta、Llama 4シリーズをオープンソースで公開", source: "VentureBeat", age: 10.5, level: "HIGH", cat: "AI" },
-  { title: "TSMC、2nm量産プロセスの歩留まり改善に成功", source: "DigiTimes", age: 11.5, level: "MED", cat: "半導体" },
-];
+// GDELT seendate parser: "20260214T233000Z" -> Date
+function parseGdeltDate(s) {
+  if (!s || s.length < 15) return new Date();
+  return new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T${s.slice(9,11)}:${s.slice(11,13)}:${s.slice(13,15)}Z`);
+}
+
+// Derive news category from title keywords
+function deriveCategory(title, domain) {
+  const t = (title + ' ' + domain).toLowerCase();
+  const rules = [
+    [/戦争|紛争|軍事|攻撃|爆発|テロ|war|attack|military|bomb|conflict|strike/i, '紛争'],
+    [/安保|防衛|nato|missile|ミサイル|核|nuclear|weapon|icbm/i, '安全保障'],
+    [/経済|gdp|市場|株|貿易|trade|economy|inflation|recession/i, '経済'],
+    [/政治|政権|選挙|外交|大統領|首相|sanction|election|diplomacy/i, '地政学'],
+    [/ai|人工知能|機械学習|llm|chatgpt|claude|gemini|openai|anthropic|deepmind/i, 'AI'],
+    [/半導体|chip|semiconductor|nvidia|tsmc|intel|amd/i, '半導体'],
+    [/宇宙|space|nasa|rocket|衛星|spacex|starship/i, '宇宙'],
+    [/量子|quantum/i, '量子'],
+    [/環境|気候|climate|carbon|emission/i, '環境'],
+    [/エネルギー|原油|oil|gas|energy|opec/i, 'エネルギー'],
+    [/規制|法律|法案|regulation|law|ban|compliance/i, '規制'],
+  ];
+  for (const [re, cat] of rules) {
+    if (re.test(t)) return cat;
+  }
+  return '国際';
+}
+
+// Derive urgency level from title keywords
+function deriveLevel(title) {
+  const t = title.toLowerCase();
+  if (/速報|breaking|urgent|緊急|attack|explosion|爆発|戦争|war|死亡|killed/i.test(t)) return 'CRIT';
+  if (/制裁|sanction|軍事|military|危機|crisis|懸念|threat|警告|warn/i.test(t)) return 'HIGH';
+  if (/発表|announce|report|計画|plan|update/i.test(t)) return 'MED';
+  return 'MED';
+}
+
+// Fetch world news from GDELT
+async function fetchWorldNews() {
+  try {
+    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(geopolitics OR conflict OR economy OR military OR diplomacy OR sanctions OR war OR trade) sourcelang:japanese&mode=ArtList&maxrecords=25&format=json&sort=DateDesc&timespan=24h';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.articles || !data.articles.length) return;
+    WORLD_NEWS = data.articles.map(a => ({
+      title: a.title,
+      source: a.domain.replace('www.', ''),
+      url: a.url,
+      age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
+      level: deriveLevel(a.title),
+      cat: deriveCategory(a.title, a.domain),
+    }));
+    if (currentTab === 'world') renderNews(WORLD_NEWS);
+    document.getElementById('newsFeedStatus').textContent = 'LIVE';
+    document.getElementById('newsFeedStatus').className = 'status-online';
+  } catch(e) {
+    console.error('World news fetch error:', e);
+    document.getElementById('newsFeedStatus').textContent = 'ERROR';
+    document.getElementById('newsFeedStatus').className = 'status-error';
+  }
+}
+
+// Fetch tech news from GDELT
+async function fetchTechNews() {
+  try {
+    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(AI OR "artificial intelligence" OR semiconductor OR quantum OR space OR robot) sourcelang:japanese&mode=ArtList&maxrecords=25&format=json&sort=DateDesc&timespan=48h';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.articles || !data.articles.length) return;
+    TECH_NEWS = data.articles.map(a => ({
+      title: a.title,
+      source: a.domain.replace('www.', ''),
+      url: a.url,
+      age: Math.max(0.1, (Date.now() - parseGdeltDate(a.seendate).getTime()) / 3600000),
+      level: deriveLevel(a.title),
+      cat: deriveCategory(a.title, a.domain),
+    }));
+    if (currentTab === 'tech') renderNews(TECH_NEWS);
+  } catch(e) {
+    console.error('Tech news fetch error:', e);
+  }
+}
 
 let currentTab = 'world';
 let map, eqLayer;
@@ -928,18 +985,32 @@ async function fetchEarthquakes() {
 }
 
 // ─── NEWS RENDERING ───
+function formatNewsAge(hours) {
+  if (hours < 0.5) return 'たった今';
+  if (hours < 1) return '30分前';
+  if (hours < 24) return Math.floor(hours) + '時間前';
+  return Math.floor(hours / 24) + '日前';
+}
+
 function renderNews(items) {
   const body = document.getElementById('newsBody');
+  if (!items || items.length === 0) {
+    body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-dim);font-family:var(--mono);font-size:11px">ニュース取得中...</div>';
+    return;
+  }
   body.innerHTML = items.map((item, i) => {
     const lc = levelColor(item.level);
+    const titleHtml = item.url
+      ? `<a href="${item.url}" target="_blank" rel="noopener" class="news-title" style="text-decoration:none;color:var(--text)">${item.title}</a>`
+      : `<div class="news-title">${item.title}</div>`;
     return `
       <div class="news-item" style="animation:fadeIn 0.3s ease-out ${i * 0.04}s both">
         <div class="news-top">
           <span class="news-level" style="background:${lc}15;color:${lc};border:1px solid ${lc}40">${item.level}</span>
           <span class="news-category">${item.cat}</span>
-          <span class="news-time">${item.age < 1 ? '30分前' : item.age + '時間前'}</span>
+          <span class="news-time">${formatNewsAge(item.age)}</span>
         </div>
-        <div class="news-title">${item.title}</div>
+        ${titleHtml}
         <div class="news-source">${item.source}</div>
       </div>
     `;
@@ -961,7 +1032,8 @@ function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tabWorld').className = 'tab' + (tab === 'world' ? ' active' : '');
   document.getElementById('tabTech').className = 'tab' + (tab === 'tech' ? ' active' : '');
-  renderNews(tab === 'world' ? WORLD_NEWS : TECH_NEWS);
+  const items = tab === 'world' ? WORLD_NEWS : TECH_NEWS;
+  renderNews(items);
 }
 
 // ─── LAYER CONTROLS ───
@@ -1144,7 +1216,12 @@ setInterval(fetchWildfires, 1800000);     // 30 min
 setInterval(fetchConflicts, 3600000);     // 60 min
 setInterval(fetchStorms, 1800000);        // 30 min
 
-renderNews(WORLD_NEWS);
+// News fetch (staggered to avoid GDELT rate limits)
+renderNews(WORLD_NEWS); // show loading state
+fetchWorldNews();
+setTimeout(fetchTechNews, 5000);         // stagger 5s
+setInterval(fetchWorldNews, 300000);     // 5 min
+setInterval(fetchTechNews, 300000);      // 5 min
 </script>
 </body>
 </html>
