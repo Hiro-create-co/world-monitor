@@ -484,8 +484,8 @@
     /* 地図パネルを最上部に表示 */
     .map-panel { order: -1; }
 
-    /* 地図エリアの高さ確保 */
-    .map-panel > div:nth-child(2) { min-height: 50vh; }
+    /* 地図エリアの高さ確保（#mapがposition:absoluteなので親に明示的な高さが必要） */
+    .map-panel > div:nth-child(2) { min-height: 50vh !important; height: 50vh !important; flex: none !important; }
 
     /* 地図下部: ゲージとサマリーを縦並び */
     .map-bottom {
