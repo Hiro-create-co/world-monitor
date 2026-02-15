@@ -632,6 +632,12 @@
             <span style="cursor:pointer;font-size:14px;padding:0 2px" onclick="toggleLayerPanel()">×</span>
           </div>
           <label class="layer-row">
+            <input type="checkbox" checked onchange="toggleLayer('weather', this.checked)">
+            <span class="layer-icon">🌤</span>
+            <span class="layer-name">天気 WEATHER</span>
+            <span class="layer-count" id="layerCount-weather">--</span>
+          </label>
+          <label class="layer-row">
             <input type="checkbox" checked onchange="toggleLayer('earthquakes', this.checked)">
             <span class="layer-icon">🔴</span>
             <span class="layer-name">地震 SEISMIC</span>
@@ -848,6 +854,7 @@ let currentTab = 'japan';
 let map, eqLayer;
 let earthquakeData = [];
 const layers = {
+  weather:     { group: null, visible: true, count: 0 },
   earthquakes: { group: null, visible: true, count: 0 },
   volcanoes:   { group: null, visible: true, count: 0 },
   wildfires:   { group: null, visible: false, count: 0 },
@@ -919,6 +926,7 @@ function initMap() {
     maxZoom: 19,
   }).addTo(map);
 
+  layers.weather.group = L.layerGroup().addTo(map);
   layers.earthquakes.group = L.layerGroup().addTo(map);
   layers.volcanoes.group = L.layerGroup().addTo(map);
   layers.wildfires.group = L.layerGroup();
@@ -1342,12 +1350,115 @@ async function fetchStorms() {
   } catch(e) { console.error('Storm fetch error:', e); }
 }
 
+// ─── FETCH: WEATHER (Open-Meteo, free, no key) ───
+const WEATHER_CITIES = [
+  { name: '東京', lat: 35.68, lon: 139.69 },
+  { name: '大阪', lat: 34.69, lon: 135.50 },
+  { name: '札幌', lat: 43.06, lon: 141.35 },
+  { name: '福岡', lat: 33.59, lon: 130.40 },
+  { name: '那覇', lat: 26.34, lon: 127.68 },
+  { name: 'Seoul', lat: 37.57, lon: 126.98 },
+  { name: 'Beijing', lat: 39.90, lon: 116.40 },
+  { name: 'Shanghai', lat: 31.23, lon: 121.47 },
+  { name: 'Taipei', lat: 25.03, lon: 121.57 },
+  { name: 'Bangkok', lat: 13.76, lon: 100.50 },
+  { name: 'Singapore', lat: 1.35, lon: 103.82 },
+  { name: 'Jakarta', lat: -6.21, lon: 106.85 },
+  { name: 'Sydney', lat: -33.87, lon: 151.21 },
+  { name: 'Mumbai', lat: 19.08, lon: 72.88 },
+  { name: 'Dubai', lat: 25.20, lon: 55.27 },
+  { name: 'London', lat: 51.51, lon: -0.13 },
+  { name: 'Paris', lat: 48.86, lon: 2.35 },
+  { name: 'Moscow', lat: 55.76, lon: 37.62 },
+  { name: 'New York', lat: 40.71, lon: -74.01 },
+  { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
+  { name: 'São Paulo', lat: -23.55, lon: -46.63 },
+  { name: 'Cairo', lat: 30.04, lon: 31.24 },
+  { name: 'Lagos', lat: 6.52, lon: 3.38 },
+  { name: 'Nairobi', lat: -1.29, lon: 36.82 },
+];
+
+function weatherIcon(code) {
+  // WMO weather codes → emoji
+  if (code === 0) return '☀️';
+  if (code <= 3) return '⛅';
+  if (code <= 48) return '🌫️';
+  if (code <= 55) return '🌦️';
+  if (code <= 65) return '🌧️';
+  if (code <= 67) return '🌨️';
+  if (code <= 75) return '❄️';
+  if (code <= 77) return '🌨️';
+  if (code <= 82) return '🌧️';
+  if (code <= 86) return '❄️';
+  if (code <= 99) return '⛈️';
+  return '🌤️';
+}
+
+function weatherDesc(code) {
+  if (code === 0) return '快晴';
+  if (code <= 3) return '晴れ/曇り';
+  if (code <= 48) return '霧';
+  if (code <= 55) return '霧雨';
+  if (code <= 65) return '雨';
+  if (code <= 67) return '凍雨';
+  if (code <= 75) return '雪';
+  if (code <= 77) return '雪粒';
+  if (code <= 82) return 'にわか雨';
+  if (code <= 86) return 'にわか雪';
+  if (code <= 99) return '雷雨';
+  return '---';
+}
+
+async function fetchWeather() {
+  try {
+    const lats = WEATHER_CITIES.map(c => c.lat).join(',');
+    const lons = WEATHER_CITIES.map(c => c.lon).join(',');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`;
+    const res = await fetch(url);
+    const dataArr = await res.json();
+
+    layers.weather.group.clearLayers();
+    // Open-Meteo returns array when multiple coords
+    const results = Array.isArray(dataArr) ? dataArr : [dataArr];
+    results.forEach((data, i) => {
+      const city = WEATHER_CITIES[i];
+      if (!data || !data.current) return;
+      const cur = data.current;
+      const icon = weatherIcon(cur.weather_code);
+      const temp = Math.round(cur.temperature_2m);
+      const tempColor = temp >= 35 ? '#ff1744' : temp >= 25 ? '#ff9100' : temp >= 15 ? '#76ff03' : temp >= 5 ? '#40c4ff' : '#90caf9';
+
+      L.marker([city.lat, city.lon], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div style="text-align:center;pointer-events:auto">
+            <span style="font-size:18px;filter:drop-shadow(0 0 3px rgba(0,0,0,0.8))">${icon}</span>
+            <div style="font-family:var(--mono);font-size:10px;font-weight:700;color:${tempColor};text-shadow:0 0 4px #000,0 0 8px #000;margin-top:-2px">${temp}°</div>
+          </div>`,
+          iconSize: [40, 36], iconAnchor: [20, 18]
+        }),
+        zIndexOffset: -100,
+      }).addTo(layers.weather.group)
+        .bindPopup(`<div style="min-width:150px">
+          <div style="color:#40c4ff;font-weight:700;font-family:var(--mono)">🌤 ${city.name}</div>
+          <div style="font-size:20px;margin:6px 0">${icon} <span style="font-family:var(--mono);font-weight:700;color:${tempColor}">${temp}°C</span></div>
+          <div style="font-size:11px;color:#a0c0d0">${weatherDesc(cur.weather_code)}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:4px;font-family:var(--mono)">
+            💧 ${cur.relative_humidity_2m}% | 💨 ${cur.wind_speed_10m}km/h
+          </div>
+        </div>`);
+    });
+    updateLayerCount('weather', results.filter(d => d && d.current).length);
+  } catch(e) { console.error('Weather fetch error:', e); }
+}
+
 // ─── INIT ───
 initMap();
 setTimeout(() => { map.invalidateSize(); map.setView([35, 136], 3); }, 200);
 window.addEventListener('resize', () => map.invalidateSize());
 
 // Fetch all layers
+fetchWeather();
 fetchEarthquakes();
 fetchVolcanoes();
 fetchWildfires();
@@ -1356,6 +1467,7 @@ fetchNuclearPlants();
 fetchStorms();
 
 // Refresh intervals
+setInterval(fetchWeather, 1800000);       // 30 min
 setInterval(fetchEarthquakes, 120000);    // 2 min
 setInterval(fetchVolcanoes, 1800000);     // 30 min
 setInterval(fetchWildfires, 1800000);     // 30 min
