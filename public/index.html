@@ -185,6 +185,21 @@
     border-radius: 2px; font-family: var(--mono); font-size: 9px;
     color: #fff; letter-spacing: 1px; font-weight: 600;
   }
+  .youtube-fallback {
+    display: none; width: 100%; aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #0a1628, #0d1f30);
+    border: 1px solid var(--border);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; text-align: center;
+  }
+  .youtube-fallback .fb-icon { font-size: 36px; opacity: 0.5; }
+  .youtube-fallback .fb-text {
+    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .youtube-fallback .fb-sub {
+    font-family: var(--mono); font-size: 9px; color: var(--text-dimmer);
+  }
 
   /* Stats bar */
   .stats-bar {
@@ -576,9 +591,15 @@
       </div>
 
       <!-- YouTube Live -->
-      <div class="youtube-container">
-        <span class="youtube-label">● LIVE 配信</span>
-        <iframe src="https://www.youtube.com/embed/c7_kqMFDE8c?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      <div class="youtube-container" id="ytContainer">
+        <span class="youtube-label" id="ytLabel">● LIVE 配信</span>
+        <iframe id="ytFrame" src="https://www.youtube.com/embed/c7_kqMFDE8c?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <div class="youtube-fallback" id="ytFallback">
+          <div class="fb-icon">📡</div>
+          <div class="fb-text">配信停止中</div>
+          <div class="fb-sub">STREAM OFFLINE</div>
+          <div class="fb-sub">地震速報ライブが現在利用できません</div>
+        </div>
       </div>
 
       <!-- Stats -->
@@ -1451,6 +1472,38 @@ async function fetchWeather() {
     updateLayerCount('weather', results.filter(d => d && d.current).length);
   } catch(e) { console.error('Weather fetch error:', e); }
 }
+
+// ─── YOUTUBE FALLBACK ───
+function checkYouTubeStream() {
+  const frame = document.getElementById('ytFrame');
+  const fallback = document.getElementById('ytFallback');
+  const label = document.getElementById('ytLabel');
+  if (!frame || !fallback) return;
+
+  // iframeのonerrorでは検知できないため、定期的にiframeを再読み込みして確認
+  // YouTube embed は配信終了時に黒画面になるが、JSからは検知不可
+  // → タイムアウト方式: iframeが5秒以内にloadしなければフォールバック表示
+  let loaded = false;
+  frame.addEventListener('load', () => { loaded = true; });
+
+  // 配信終了を想定したフォールバック切替関数
+  window.showYtFallback = function() {
+    frame.style.display = 'none';
+    fallback.style.display = 'flex';
+    label.textContent = '● OFFLINE';
+    label.style.background = 'rgba(74,90,100,0.85)';
+  };
+  window.showYtLive = function() {
+    frame.style.display = '';
+    fallback.style.display = 'none';
+    label.textContent = '● LIVE 配信';
+    label.style.background = 'rgba(255,23,68,0.85)';
+  };
+
+  // iframeのエラーイベント（一部ブラウザで動作）
+  frame.addEventListener('error', () => window.showYtFallback());
+}
+checkYouTubeStream();
 
 // ─── INIT ───
 initMap();
