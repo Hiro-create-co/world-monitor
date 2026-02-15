@@ -707,11 +707,14 @@ function deriveLevel(title) {
   return 'MED';
 }
 
-// Fetch world news from GDELT
+// News domain lists
+const WORLD_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:asahi.com OR domain:mainichi.jp OR domain:sankei.com OR domain:kyodo.co.jp OR domain:nikkei.com OR domain:jp.reuters.com OR domain:afpbb.com OR domain:newsweekjapan.jp OR domain:tokyo-np.co.jp OR domain:cnn.co.jp OR domain:bbc.com';
+const TECH_DOMAINS = 'domain:itmedia.co.jp OR domain:gigazine.net OR domain:japan.zdnet.com OR domain:pc.watch.impress.co.jp OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp OR domain:cloud.watch.impress.co.jp OR domain:ledge.ai OR domain:robotstart.info';
+
+// Fetch world news from GDELT (filtered by major news media domains)
 async function fetchWorldNews() {
   try {
-    // Japanese keywords for world news: politics, economy, military, diplomacy, conflict
-    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(政治 OR 経済 OR 軍事 OR 外交 OR 紛争 OR 戦争 OR 制裁 OR 安全保障 OR 地政学 OR 選挙 OR 首脳) sourcelang:japanese&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=24h';
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=sourcelang:japanese (${WORLD_DOMAINS})&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=24h`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.articles || !data.articles.length) return;
@@ -735,11 +738,10 @@ async function fetchWorldNews() {
   }
 }
 
-// Fetch tech news from GDELT
+// Fetch tech news from GDELT (filtered by tech media domains)
 async function fetchTechNews() {
   try {
-    // Japanese keywords for tech news: AI, semiconductor, space, quantum, robot
-    const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=(人工知能 OR 半導体 OR 宇宙 OR 量子 OR ロボット OR 生成AI OR チャットボット OR GPU OR スパコン) sourcelang:japanese&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=48h';
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=sourcelang:japanese (${TECH_DOMAINS})&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=48h`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.articles || !data.articles.length) return;
