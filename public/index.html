@@ -709,17 +709,15 @@ function deriveLevel(title) {
   return 'MED';
 }
 
-// News domain lists (max ~7 domains to avoid GDELT "query too long" error)
-const JAPAN_DOMAINS = 'domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:nikkei.com OR domain:sankei.com OR domain:mainichi.jp';
-const WORLD_DOMAINS = 'domain:reuters.com OR domain:bbc.com OR domain:aljazeera.com OR domain:apnews.com OR domain:france24.com';
-const TECH_DOMAINS = 'domain:itmedia.co.jp OR domain:gigazine.net OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp';
-
-// Generic GDELT fetch helper with retry
-async function fetchGdeltNews(query, timespan) {
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=${timespan}`;
+// GDELT fetch helper — DO NOT use encodeURIComponent (GDELT rejects encoded colons/parens)
+async function fetchGdeltNews(queryRaw, timespan) {
+  const base = 'https://api.gdeltproject.org/api/v2/doc/doc';
+  const url = `${base}?query=${queryRaw}&mode=ArtList&maxrecords=30&format=json&sort=DateDesc&timespan=${timespan}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const text = await res.text();
+  if (!text || text.startsWith('Your') || text.startsWith('<')) throw new Error('GDELT error: ' + text.slice(0, 80));
+  const data = JSON.parse(text);
   if (!data.articles || !data.articles.length) return [];
   return data.articles
     .filter(a => a.title && a.title.length > 10)
@@ -733,10 +731,11 @@ async function fetchGdeltNews(query, timespan) {
     }));
 }
 
-// Fetch Japan news
+// Fetch Japan news (major Japanese media)
 async function fetchJapanNews() {
   try {
-    JAPAN_NEWS = await fetchGdeltNews(`sourcelang:japanese (${JAPAN_DOMAINS})`, '24h');
+    JAPAN_NEWS = await fetchGdeltNews(
+      'sourcelang:japanese (domain:nhk.or.jp OR domain:jiji.com OR domain:yomiuri.co.jp OR domain:nikkei.com OR domain:sankei.com)', '24h');
     if (currentTab === 'japan') renderNews(JAPAN_NEWS);
     document.getElementById('newsFeedStatus').textContent = 'LIVE';
     document.getElementById('newsFeedStatus').className = 'status-online';
@@ -749,10 +748,11 @@ async function fetchJapanNews() {
   }
 }
 
-// Fetch world news (English international media)
+// Fetch world news (Japanese-language international news sources)
 async function fetchWorldNews() {
   try {
-    WORLD_NEWS = await fetchGdeltNews(`sourcelang:english (${WORLD_DOMAINS})`, '24h');
+    WORLD_NEWS = await fetchGdeltNews(
+      'sourcelang:japanese (domain:afpbb.com OR domain:cnn.co.jp OR domain:newsweekjapan.jp OR domain:bbc.com OR domain:kyodo.co.jp)', '24h');
     if (currentTab === 'world') renderNews(WORLD_NEWS);
   } catch(e) { console.error('World news fetch error:', e); }
 }
@@ -760,7 +760,8 @@ async function fetchWorldNews() {
 // Fetch tech news (Japanese tech media)
 async function fetchTechNews() {
   try {
-    TECH_NEWS = await fetchGdeltNews(`sourcelang:japanese (${TECH_DOMAINS})`, '48h');
+    TECH_NEWS = await fetchGdeltNews(
+      'sourcelang:japanese (domain:itmedia.co.jp OR domain:gigazine.net OR domain:wired.jp OR domain:gizmodo.jp OR domain:ascii.jp)', '48h');
     if (currentTab === 'tech') renderNews(TECH_NEWS);
   } catch(e) { console.error('Tech news fetch error:', e); }
 }
@@ -1035,7 +1036,7 @@ function renderNews(items) {
 
   // Count
   document.getElementById('newsCount').textContent = items.length;
-  const labels = { japan: '日本の主要ニュース', world: '国際ニュース (EN)', tech: 'AI・半導体・宇宙' };
+  const labels = { japan: '日本の主要ニュース', world: '国際ニュース', tech: 'テック・サイエンス' };
   document.getElementById('newsSubLabel').innerHTML =
     `${labels[currentTab] || ''} — <span id="newsCount">${items.length}</span> 件`;
 }
