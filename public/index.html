@@ -457,6 +457,76 @@
   .popup-mag { font-family: var(--mono); font-weight: 700; font-size: 16px; }
   .popup-place { margin-top: 4px; color: #a0c0d0; }
   .popup-depth { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ─── RESPONSIVE: Mobile ─── */
+  @media (max-width: 768px) {
+    /* 全体: スクロール可能に */
+    body { overflow-y: auto; overflow-x: hidden; }
+    .app { grid-template-rows: auto 1fr auto; height: auto; min-height: 100vh; }
+
+    /* ヘッダー: コンパクト化 */
+    .header { padding: 8px 12px; flex-wrap: wrap; gap: 6px; }
+    .logo-ver { display: none; }
+    .logo-text { font-size: 14px; letter-spacing: 3px; }
+    .header-right { gap: 8px; }
+    .clock { font-size: 13px; }
+    .clock-sub { display: none; }
+    .threat-badge { font-size: 9px; padding: 2px 6px; }
+
+    /* メイン: 3カラム → 1カラム縦積み */
+    .main {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* 地図パネルを最上部に表示 */
+    .map-panel { order: -1; }
+
+    /* 地図エリアの高さ確保 */
+    .map-panel > div:nth-child(2) { min-height: 50vh; }
+
+    /* 地図下部: ゲージとサマリーを縦並び */
+    .map-bottom {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+    .gauge-container {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 8px;
+    }
+
+    /* レイヤーパネル: 位置調整 */
+    .layer-panel { top: 60px; left: 8px; width: 220px; min-width: 220px; }
+    .layer-toggle-btn { top: 60px; left: 8px; }
+
+    /* 地図凡例: スマホでは非表示 */
+    .map-legend { display: none; }
+
+    /* 統計バー: 2列に */
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .stat-value { font-size: 16px; }
+
+    /* パネル各セクション */
+    .panel { min-height: auto; }
+    .panel-body { max-height: 50vh; }
+
+    /* ニュースタブ */
+    .tab { font-size: 10px; padding: 8px 4px; }
+
+    /* フッター: 縦並び・簡略化 */
+    .footer {
+      flex-direction: column; gap: 4px;
+      padding: 6px 12px; text-align: center;
+      height: auto;
+    }
+    .footer-left { flex-wrap: wrap; justify-content: center; gap: 6px; }
+
+    /* スキャンライン: スマホでは控えめ */
+    .scanline { display: none; }
+  }
 </style>
 </head>
 <body>
