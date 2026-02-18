@@ -174,7 +174,8 @@
     width: 100%;
     flex-shrink: 0;
   }
-  .youtube-container iframe {
+  .youtube-container iframe,
+  .youtube-container #ytPlayer {
     width: 100%;
     aspect-ratio: 16/9;
     border: none;
@@ -185,6 +186,16 @@
     border-radius: 2px; font-family: var(--mono); font-size: 9px;
     color: #fff; letter-spacing: 1px; font-weight: 600;
   }
+  .yt-mute-btn {
+    position: absolute; bottom: 8px; right: 8px; z-index: 10;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(6,14,24,0.85); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .yt-mute-btn:hover { background: #0d1f30; color: var(--cyan); border-color: var(--cyan); }
+  .yt-mute-btn.unmuted { color: var(--cyan); border-color: var(--cyan); }
   .youtube-fallback {
     display: none; width: 100%; aspect-ratio: 16/9;
     background: linear-gradient(135deg, #0a1628, #0d1f30);
@@ -593,7 +604,8 @@
       <!-- YouTube Live -->
       <div class="youtube-container" id="ytContainer">
         <span class="youtube-label" id="ytLabel">● LIVE 配信</span>
-        <iframe id="ytFrame" src="https://www.youtube.com/embed/c7_kqMFDE8c?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <div id="ytPlayer"></div>
+        <button class="yt-mute-btn" id="ytMuteBtn" onclick="toggleYtMute()" title="音声ON/OFF">🔇</button>
         <div class="youtube-fallback" id="ytFallback">
           <div class="fb-icon">📡</div>
           <div class="fb-text">配信停止中</div>
@@ -1473,37 +1485,70 @@ async function fetchWeather() {
   } catch(e) { console.error('Weather fetch error:', e); }
 }
 
-// ─── YOUTUBE FALLBACK ───
-function checkYouTubeStream() {
-  const frame = document.getElementById('ytFrame');
+// ─── YOUTUBE PLAYER (IFrame API) ───
+let ytPlayer = null;
+let ytMuted = true;
+
+// Load YouTube IFrame API
+const ytScript = document.createElement('script');
+ytScript.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(ytScript);
+
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('ytPlayer', {
+    videoId: 'c7_kqMFDE8c',
+    playerVars: {
+      autoplay: 1, mute: 1, controls: 0,
+      modestbranding: 1, rel: 0, showinfo: 0, playsinline: 1,
+    },
+    events: {
+      onReady: function(e) { e.target.playVideo(); },
+      onError: function() { window.showYtFallback(); },
+      onStateChange: function(e) {
+        // YT.PlayerState.ENDED = 0 → 配信終了
+        if (e.data === 0) window.showYtFallback();
+      },
+    },
+  });
+};
+
+function toggleYtMute() {
+  if (!ytPlayer || !ytPlayer.isMuted) return;
+  const btn = document.getElementById('ytMuteBtn');
+  if (ytPlayer.isMuted()) {
+    ytPlayer.unMute();
+    ytMuted = false;
+    btn.textContent = '🔊';
+    btn.classList.add('unmuted');
+  } else {
+    ytPlayer.mute();
+    ytMuted = true;
+    btn.textContent = '🔇';
+    btn.classList.remove('unmuted');
+  }
+}
+
+// フォールバック切替関数
+window.showYtFallback = function() {
+  const container = document.getElementById('ytPlayer');
   const fallback = document.getElementById('ytFallback');
   const label = document.getElementById('ytLabel');
-  if (!frame || !fallback) return;
-
-  // iframeのonerrorでは検知できないため、定期的にiframeを再読み込みして確認
-  // YouTube embed は配信終了時に黒画面になるが、JSからは検知不可
-  // → タイムアウト方式: iframeが5秒以内にloadしなければフォールバック表示
-  let loaded = false;
-  frame.addEventListener('load', () => { loaded = true; });
-
-  // 配信終了を想定したフォールバック切替関数
-  window.showYtFallback = function() {
-    frame.style.display = 'none';
-    fallback.style.display = 'flex';
-    label.textContent = '● OFFLINE';
-    label.style.background = 'rgba(74,90,100,0.85)';
-  };
-  window.showYtLive = function() {
-    frame.style.display = '';
-    fallback.style.display = 'none';
-    label.textContent = '● LIVE 配信';
-    label.style.background = 'rgba(255,23,68,0.85)';
-  };
-
-  // iframeのエラーイベント（一部ブラウザで動作）
-  frame.addEventListener('error', () => window.showYtFallback());
-}
-checkYouTubeStream();
+  const muteBtn = document.getElementById('ytMuteBtn');
+  if (container) container.style.display = 'none';
+  if (fallback) fallback.style.display = 'flex';
+  if (label) { label.textContent = '● OFFLINE'; label.style.background = 'rgba(74,90,100,0.85)'; }
+  if (muteBtn) muteBtn.style.display = 'none';
+};
+window.showYtLive = function() {
+  const container = document.getElementById('ytPlayer');
+  const fallback = document.getElementById('ytFallback');
+  const label = document.getElementById('ytLabel');
+  const muteBtn = document.getElementById('ytMuteBtn');
+  if (container) container.style.display = '';
+  if (fallback) fallback.style.display = 'none';
+  if (label) { label.textContent = '● LIVE 配信'; label.style.background = 'rgba(255,23,68,0.85)'; }
+  if (muteBtn) muteBtn.style.display = '';
+};
 
 // ─── INIT ───
 initMap();
